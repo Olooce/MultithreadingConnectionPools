@@ -79,14 +79,10 @@ public class PopulateDB {
             this.populated_records = records;
         }
 
-        //if (connection != null && !connection.isClosed()) {
-        //    connection.setAutoCommit(false);
-        //}
 
         @Override
         public void run() {
-            Connection conn = null;
-            /*for (int i= 0; i <3; i++) {
+            Connection conn = null;for (int i= 0; i <3; i++) {
                 try {
                     int l = ((int) (Math.random() * connections.length));
                     conn = connections[l];
@@ -101,11 +97,6 @@ public class PopulateDB {
                 } catch (SQLException e) {
                     throw new RuntimeException(e);
                 }
-            }*/
-            try {
-                conn = dataSource.getConnection();
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
             }
             try {
                 if (conn != null && !conn.isClosed()){
