@@ -8,77 +8,148 @@ import java.sql.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class PopulateDB {
-    private static final int NUM_THREADS = 4;
-    private static final int RECORDS_PER_THREAD = 2500000;
-    static long records = 0;
+    private static final int NUM_THREADS = 6;
+    private static final int MAX = 5000;
+    private static final int MIN = 1000;
+    private static final long TARGET_RECORDS = 10_000_000;
+    private static final AtomicLong records = new AtomicLong();
+    private static final AtomicLong populated_records = new AtomicLong();
 
-    public static void main(String[] args) {
-        // Create executor service
-        ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
+    private static final Connection[] connections = new Connection[NUM_THREADS * 2];
 
-        // Submit tasks to the executor
-        for (int i = 0; i < NUM_THREADS; i++) {
-            executor.submit(new InsertTask());
+    static {
+        for (int i = 0; i < connections.length; i++) {
+            connections[i] = ConnectDB.getConnection();
+        }
+    }
+
+
+    public static void main(String[] args) throws InterruptedException {
+
+            Random random = new Random();
+            ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
+            int NUM_RECORDS_FOR_THREAD;
+
+            try {
+                while(records.get() < TARGET_RECORDS) {
+                    NUM_RECORDS_FOR_THREAD = Math.min(random.nextInt(MAX - MIN + 1) + MIN, (int) (TARGET_RECORDS - records.get()));
+                    if(NUM_RECORDS_FOR_THREAD <(TARGET_RECORDS - records.get())){
+                        NUM_RECORDS_FOR_THREAD = (int) (TARGET_RECORDS - records.get());
+                    }
+                    executor.execute(new InsertTask(NUM_RECORDS_FOR_THREAD, populated_records));
+                    records.getAndAdd(NUM_RECORDS_FOR_THREAD);
+                    //TimeUnit.MILLISECONDS.sleep(100);
+                }
+            } finally{
+            executor.shutdown();
+
+            try {
+                if (!executor.awaitTermination(1, TimeUnit.HOURS)) {
+                    executor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                    executor.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
         }
 
-        // Shutdown the executor and wait for all tasks to complete
-        executor.shutdown();
         try {
-            executor.awaitTermination(1, TimeUnit.DAYS);
-        } catch (InterruptedException e) {
+            for (Connection conn : connections) {
+                conn.close();
+            }
+        } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
+
     // Runnable task for inserting records
     private static class InsertTask implements Runnable {
         private final Faker faker;
+        private final int NUM_RECORDS_FOR_THREAD;
+        private final AtomicLong populated_records;
 
-        public InsertTask() {
+        public InsertTask(int NUM_RECORD_FOR_THREAD, AtomicLong records) {
             this.faker = new Faker();
+            this.NUM_RECORDS_FOR_THREAD = NUM_RECORD_FOR_THREAD;
+            this.populated_records = records;
         }
+
+        //if (connection != null && !connection.isClosed()) {
+        //    connection.setAutoCommit(false);
+        //}
 
         @Override
         public void run() {
-            try (Connection conn = ConnectDB.getConnection()) {
-                conn.setAutoCommit(false); // Disable auto-commit
+            Connection conn = null;
+            /*for (int i= 0; i <3; i++) {
+                try {
+                    int l = ((int) (Math.random() * connections.length));
+                    conn = connections[l];
 
-                String insertEmp = "INSERT INTO employees (name, dob, gender, department_id, employment_type, employment_date) VALUES (?, ?, ?, ?, ?, ?)";
-                String insertCon = "INSERT INTO contact_info (employee_id, address, phone_no, email, emergency_contact_no, emergency_contact_name) VALUES (?, ?, ?, ?, ?, ?)";
-                String insertSal = "INSERT INTO salaries (employee_id, month, basic_salary, total_allowances, total_deductions, total_gross_earnings, tax_relief, tax_relief_description, total_taxes, net_salary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                String insertAllowance = "INSERT INTO allowances (employee_id, month, allowance_name, allowance_description,allowance_rate, allowance_type, allowance_amount) VALUES (?, ?, ?, ?, ?, ?, ?)";
-                String insertDeduction = "INSERT INTO deductions (employee_id, month, deduction_name, deduction_description, deduction_type, deduction_amount) VALUES ( ?, ?, ?, ?, ?, ?)";
-                String insertTax = "INSERT INTO taxes (employee_id, month, gross_salary, tax_name, tax_rate, tax_type,tax_amount) VALUES (?, ?, ?, ?, ?, ?, ?)";
-                String insertBank = "INSERT INTO bank_details (employee_id, account_no, bank_name, branch_code) VALUES (?, ?, ?, ?)";
+                    if (conn == null || conn.isClosed()){
+                        conn   = ConnectDB.getConnection();
+                        break;
+                    }
+                    else if (!conn.isClosed()){
+                        break;
+                    }
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }*/
+            try {
+                conn = dataSource.getConnection();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+            try {
+                if (conn != null && !conn.isClosed()){
+                    conn.setAutoCommit(false);
 
-                for (int i = 0; i < RECORDS_PER_THREAD; i++) {
-                    long employeeId = insertEmployee(conn, insertEmp);
+                    String insertEmp = "INSERT INTO employees (name, dob, gender, department_id, employment_type, employment_date) VALUES (?, ?, ?, ?, ?, ?)";
+                    String insertCon = "INSERT INTO contact_info (employee_id, address, phone_no, email, emergency_contact_no, emergency_contact_name) VALUES (?, ?, ?, ?, ?, ?)";
+                    String insertSal = "INSERT INTO salaries (employee_id, month, basic_salary, total_allowances, total_deductions, total_gross_earnings, tax_relief, tax_relief_description, total_taxes, net_salary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    String insertAllowance = "INSERT INTO allowances (employee_id, month, allowance_name, allowance_description,allowance_rate, allowance_type, allowance_amount) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    String insertDeduction = "INSERT INTO deductions (employee_id, month, deduction_name, deduction_description, deduction_type, deduction_amount) VALUES ( ?, ?, ?, ?, ?, ?)";
+                    String insertTax = "INSERT INTO taxes (employee_id, month, gross_salary, tax_name, tax_rate, tax_type,tax_amount) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    String insertBank = "INSERT INTO bank_details (employee_id, account_no, bank_name, branch_code) VALUES (?, ?, ?, ?)";
 
-                    insertContactInfo(conn, insertCon, employeeId);
-                    double basicSalary = faker.number().randomDouble(2, 50000, 2000000);
-                    for (int j = 0; j < 3; j++) {
-                        Date month = convertUtilToSqlDate(new Date(faker.date().past(365, TimeUnit.DAYS).getTime()));
-                        double total_allowances = 0.0;
-                        total_allowances += insertAllowances(conn, insertAllowance, employeeId, month, basicSalary,0.03, "House Allowance");
-                        total_allowances += insertAllowances(conn, insertAllowance, employeeId, month, basicSalary,0.015, "Transport Allowance");
-                        total_allowances += insertAllowances(conn, insertAllowance, employeeId, month, basicSalary, 0.02,"Mortgage Allowance");
-                        double total_deductions = insertDeductions(conn, insertDeduction, employeeId, month);
-                        double grossSalary = basicSalary + total_allowances - total_deductions;
-                        double total_taxes = insertTaxes(conn, insertTax, employeeId, month, grossSalary, "PAYE");
+                    for (int i = 0; i < NUM_RECORDS_FOR_THREAD; i++) {
+                        long employeeId = insertEmployee(conn, insertEmp);
 
-                        insertSalaryDetails(conn, insertSal, employeeId, month, basicSalary, total_allowances, total_deductions, grossSalary, total_taxes);
-                        basicSalary = basicSalary * 1.02;
+                        insertContactInfo(conn, insertCon, employeeId);
+                        double basicSalary = faker.number().randomDouble(2, 50000, 2000000);
+                        for (int j = 0; j < 3; j++) {
+                            Date month = convertUtilToSqlDate(new Date(faker.date().past(365, TimeUnit.DAYS).getTime()));
+                            double total_allowances = 0.0;
+                            total_allowances += insertAllowances(conn, insertAllowance, employeeId, month, basicSalary,0.03, "House Allowance");
+                            total_allowances += insertAllowances(conn, insertAllowance, employeeId, month, basicSalary,0.015, "Transport Allowance");
+                            total_allowances += insertAllowances(conn, insertAllowance, employeeId, month, basicSalary, 0.02,"Mortgage Allowance");
+                            double total_deductions = insertDeductions(conn, insertDeduction, employeeId, month);
+                            double grossSalary = basicSalary + total_allowances - total_deductions;
+                            double total_taxes = insertTaxes(conn, insertTax, employeeId, month, grossSalary, "PAYE");
+
+                            insertSalaryDetails(conn, insertSal, employeeId, month, basicSalary, total_allowances, total_deductions, grossSalary, total_taxes);
+                            basicSalary = basicSalary * 1.02;
+                        }
+
+                        insertBankDetails(conn, insertBank, employeeId);
+
+                        populated_records.incrementAndGet();
+
+                        if(populated_records.get() % 1000 == 0){
+                            System.out.println("Populated " + populated_records.get() + " records");
+                            conn.commit();
+                        }
                     }
 
-                    insertBankDetails(conn, insertBank, employeeId);
-                    records += 1;
-                    System.out.println("Inserted " + records + " employee record(s)");
                     conn.commit();
                 }
-
-                conn.commit(); // Commit all transactions for this thread
             } catch (SQLException ex) {
                 ex.printStackTrace();
             }
