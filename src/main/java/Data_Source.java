@@ -1,23 +1,42 @@
 import org.apache.commons.dbcp2.BasicDataSource;
 
 import javax.sql.DataSource;
+import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Properties;
 
 public class Data_Source {
 
-    private static final BasicDataSource dataSource;
+    private static final BasicDataSource dataSource = new BasicDataSource();
 
     static {
-        dataSource = new BasicDataSource();
-        dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        dataSource.setUrl("jdbc:mysql://localhost:3306/mwm_pwm");
-        dataSource.setUsername("root");
-        dataSource.setPassword("Brook_side_96");
-        dataSource.setInitialSize(5);
-        dataSource.setMaxTotal(20);
-        dataSource.setMinIdle(3);
-        dataSource.setMaxIdle(10);
+        Properties properties = new Properties();
+        try (InputStream input = Data_Source.class.getClassLoader().getResourceAsStream("db.properties")) {
+            if (input == null) {
+                System.out.println("Sorry, unable to find db.properties");
+            }
+            // Load a properties file from class path, inside static block
+            properties.load(input);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
+        dataSource.setDriverClassName(properties.getProperty("db.driverClassName"));
+        dataSource.setUrl(properties.getProperty("db.url"));
+        dataSource.setUsername(properties.getProperty("db.username"));
+        dataSource.setPassword(properties.getProperty("db.password"));
+        dataSource.setInitialSize(Integer.parseInt(properties.getProperty("db.initialSize")));
+        dataSource.setMaxTotal(Integer.parseInt(properties.getProperty("db.maxTotal")));
+        dataSource.setMinIdle(Integer.parseInt(properties.getProperty("db.minIdle")));
+        dataSource.setMaxIdle(Integer.parseInt(properties.getProperty("db.maxIdle")));
+        dataSource.setValidationQuery(properties.getProperty("db.validationQuery"));
+        dataSource.setTestOnBorrow(true);
+        dataSource.setTestWhileIdle(true);
+        dataSource.setMaxWaitMillis(Long.parseLong(properties.getProperty("db.maxWaitMillis")));
+        dataSource.setMinEvictableIdleTimeMillis(Long.parseLong(properties.getProperty("db.minEvictableIdleTimeMillis")));
+        dataSource.setTimeBetweenEvictionRunsMillis(Long.parseLong(properties.getProperty("db.timeBetweenEvictionRunsMillis")));
     }
 
     public static DataSource getDataSource() {
@@ -28,9 +47,7 @@ public class Data_Source {
         return dataSource.getConnection();
     }
 
-    public static void closeDataSource() throws SQLException {
-        if (dataSource != null) {
-            dataSource.close();
-        }
+    public static synchronized void closeDataSource() throws SQLException {
+        dataSource.close();
     }
 }
