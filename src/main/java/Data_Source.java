@@ -37,6 +37,12 @@ public class Data_Source {
         dataSource.setMaxWaitMillis(Long.parseLong(properties.getProperty("db.maxWaitMillis")));
         dataSource.setMinEvictableIdleTimeMillis(Long.parseLong(properties.getProperty("db.minEvictableIdleTimeMillis")));
         dataSource.setTimeBetweenEvictionRunsMillis(Long.parseLong(properties.getProperty("db.timeBetweenEvictionRunsMillis")));
+
+        // Ensure that idle connections are evicted promptly
+        dataSource.setRemoveAbandonedOnBorrow(true);
+        dataSource.setRemoveAbandonedOnMaintenance(true);
+        dataSource.setRemoveAbandonedTimeout(30); //  seconds
+        dataSource.setLogAbandoned(true);
     }
 
     public static DataSource getDataSource() {
@@ -51,3 +57,4 @@ public class Data_Source {
         dataSource.close();
     }
 }
+
