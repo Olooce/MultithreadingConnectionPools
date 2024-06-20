@@ -5,6 +5,8 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -14,12 +16,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class MultiThreadedDBInserter {
-    private static final int NUM_THREADS = 145;
+    private static final int NUM_THREADS = 200;
     private static final int MAX = 7500;
     private static final int MIN = 5000;
-    static final long TARGET_RECORDS = 3_000;
+    static final long TARGET_RECORDS = 10_000_000;
     static final AtomicLong records = new AtomicLong();
     static final AtomicLong populatedRecords = new AtomicLong();
+    static final AtomicLong createdRecords =new AtomicLong();
     static final AtomicInteger activeThreadCount = new AtomicInteger();
     private static final ThreadPoolExecutor executor = new ThreadPoolExecutor(NUM_THREADS, NUM_THREADS,
             0L, TimeUnit.MILLISECONDS,
@@ -45,15 +48,19 @@ public class MultiThreadedDBInserter {
             TimeUnit.MILLISECONDS.sleep(50);
             executor.execute(new Worker(queue));
         }
+        AtomicInteger aprox = new AtomicInteger();
         new Thread(() -> {
             while (populatedRecords.get()<TARGET_RECORDS) {
                 System.out.println("Active threads: " + activeThreadCount.get());
+                System.out.println("Created " + MultiThreadedDBInserter.createdRecords.get() + " records");
                 System.out.println("Populated " + MultiThreadedDBInserter.populatedRecords.get() + " records");
+                System.out.println("Elapsed Time: "+ aprox.get()/3600 + "H: "+ (aprox.get()%3600)/60+"M (Aprox.)");
                 try {
-                    Thread.sleep(5000);
+                    Thread.sleep(60000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
+                aprox.getAndAdd(60);
             }
         }).start();
 
@@ -86,14 +93,14 @@ class Worker implements Runnable {
     public void run() {
         int randomNumber;
         while (true) {
-            try {
-                randomNumber = random.nextInt(2000);
+           try {
+                randomNumber = random.nextInt(1000);
                 TimeUnit.MICROSECONDS.sleep(randomNumber);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
             try {
-                if (MultiThreadedDBInserter.populatedRecords.get() >= MultiThreadedDBInserter.TARGET_RECORDS && queue.isEmpty()) {
+                if (MultiThreadedDBInserter.createdRecords.get() >= MultiThreadedDBInserter.TARGET_RECORDS && queue.isEmpty()) {
                     break;
                 }
                 Integer numRecordsForThread = queue.poll(50, TimeUnit.MICROSECONDS);
@@ -120,58 +127,108 @@ class Worker implements Runnable {
                 String insertDeduction = "INSERT INTO deductions (employee_id, month, deduction_name, deduction_description, deduction_type, deduction_amount) VALUES (?,?,?,?,?,?)";
                 String insertTax = "INSERT INTO taxes (employee_id, month, gross_salary, tax_name, tax_rate, tax_type, tax_amount) VALUES (?,?,?,?,?,?,?)";
                 String insertBank = "INSERT INTO bank_details (employee_id, account_no, bank_name, branch_code) VALUES (?,?,?,?)";
+
                 int batchSize = 0;
-                for (int i = 0; i < numRecordsForThread; i++) {
-                    long employeeId = insertEmployee(conn, insertEmp);
+                List<PreparedStatement> batchQueue = new ArrayList<>();
 
-                    try (PreparedStatement pstmtCon = conn.prepareStatement(insertCon);
-                         PreparedStatement pstmtSal = conn.prepareStatement(insertSal);
-                         PreparedStatement pstmtAllowance = conn.prepareStatement(insertAllowance);
-                         PreparedStatement pstmtDeduction = conn.prepareStatement(insertDeduction);
-                         PreparedStatement pstmtTax = conn.prepareStatement(insertTax);
-                         PreparedStatement pstmtBank = conn.prepareStatement(insertBank)) {
+                PreparedStatement pstmtCon = null;
+                PreparedStatement pstmtSal = null;
+                PreparedStatement pstmtAllowance = null;
+                PreparedStatement pstmtDeduction = null;
+                PreparedStatement pstmtTax = null;
+                PreparedStatement pstmtBank = null;
 
-                        double basicSalary = random.nextDouble() * (2000000 - 50000) + 50000;
-                        for (int j = 0; j < 3; j++) {
-                            Date month = convertUtilToSqlDate(new java.util.Date(faker.date().past(365, TimeUnit.DAYS).getTime()));
-                            double totalAllowances = 0.0;
-                            totalAllowances += insertAllowances(conn, pstmtAllowance, employeeId, month, basicSalary, 0.03, "House Allowance");
-                            totalAllowances += insertAllowances(conn, pstmtAllowance, employeeId, month, basicSalary, 0.015, "Transport Allowance");
-                            totalAllowances += insertAllowances(conn, pstmtAllowance, employeeId, month, basicSalary, 0.02, "Mortgage Allowance");
-                            double totalDeductions = insertDeductions(conn, pstmtDeduction, employeeId, month);
-                            double grossSalary = basicSalary + totalAllowances - totalDeductions;
-                            double totalTaxes = insertTaxes(conn, pstmtTax, employeeId, month, grossSalary, "PAYE");
+                for (int i = 0; i <= numRecordsForThread; i++) {
 
-                            insertSalaryDetails(conn, pstmtSal, employeeId, month, basicSalary, totalAllowances, totalDeductions, grossSalary, totalTaxes);
-                            basicSalary = basicSalary * 1.02;
-                        }
 
-                        insertContactInfo(conn, pstmtCon, employeeId);
-                        insertBankDetails(conn, pstmtBank, employeeId);
-                        batchSize++;
-                        if(batchSize % 25 == 0){
-                            pstmtCon.executeBatch();
-                            pstmtSal.executeBatch();
-                            pstmtAllowance.executeBatch();
-                            pstmtDeduction.executeBatch();
-                            pstmtTax.executeBatch();
-                            pstmtBank.executeBatch();
-                            conn.commit();
-                        }
+                    PreparedStatement pstmtEmp = conn.prepareStatement(insertEmp, PreparedStatement.RETURN_GENERATED_KEYS);
+                    pstmtCon = conn.prepareStatement(insertCon);
+                    pstmtSal = conn.prepareStatement(insertSal);
+                    pstmtAllowance = conn.prepareStatement(insertAllowance);
+                    pstmtDeduction = conn.prepareStatement(insertDeduction);
+                    pstmtTax = conn.prepareStatement(insertTax);
+                    pstmtBank = conn.prepareStatement(insertBank);
 
-                        MultiThreadedDBInserter.populatedRecords.incrementAndGet();
+                    long employeeId = insertEmployee(pstmtEmp);
+                    double basicSalary = random.nextDouble() * (2000000 - 50000) + 50000;
+
+                    for (int j = 0; j < 3; j++) {
+                        Date month = convertUtilToSqlDate(new java.util.Date(faker.date().past(365, TimeUnit.DAYS).getTime()));
+                        double totalAllowances = 0.0;
+                        totalAllowances += insertAllowances(pstmtAllowance, employeeId, month, basicSalary, 0.03, "House Allowance");
+                        totalAllowances += insertAllowances(pstmtAllowance, employeeId, month, basicSalary, 0.015, "Transport Allowance");
+                        totalAllowances += insertAllowances(pstmtAllowance, employeeId, month, basicSalary, 0.02, "Mortgage Allowance");
+                        double totalDeductions = insertDeductions(pstmtDeduction, employeeId, month);
+                        double grossSalary = basicSalary + totalAllowances - totalDeductions;
+                        double totalTaxes = insertTaxes(pstmtTax, employeeId, month, grossSalary, "PAYE");
+
+                        insertSalaryDetails(pstmtSal, employeeId, month, basicSalary, totalAllowances, totalDeductions, grossSalary, totalTaxes);
+                        basicSalary = basicSalary * 1.02;
+                    }
+
+                    insertContactInfo(pstmtCon, employeeId);
+                    insertBankDetails(pstmtBank, employeeId);
+
+
+                    batchQueue.add(pstmtCon);
+                    batchQueue.add(pstmtSal);
+                    batchQueue.add(pstmtAllowance);
+                    batchQueue.add(pstmtDeduction);
+                    batchQueue.add(pstmtTax);
+                    batchQueue.add(pstmtBank);
+
+                    batchSize++;
+                        /*if(batchSize != 0){
+                            executeAndCommitBatches(conn, pstmtCon, pstmtSal, pstmtAllowance, pstmtDeduction, pstmtTax, pstmtBank);
+                        }*/
+                    if (batchSize == 50/*(faker.options().option( 5,10,50, 75, 100, 150, 200)) /*batchQueue.size() % 100 == 0*/) {
+                        executeAndCommitBatches(conn, batchQueue.toArray(new PreparedStatement[0]));
+                        batchQueue.clear();
+                    }
+
+                    MultiThreadedDBInserter.createdRecords.incrementAndGet();
+                        /*if(i==numRecordsForThread){
+                            executeAndCommitBatches(conn, pstmtCon, pstmtSal, pstmtAllowance, pstmtDeduction, pstmtTax, pstmtBank);
+                        }*/
+
+
+                }
+                if (!batchQueue.isEmpty()) {
+                    try {
+                        executeAndCommitBatches(conn, batchQueue.toArray(new PreparedStatement[0]));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
                     }
                 }
-                conn.commit();
-            } catch (SQLException ex) {
-                ex.printStackTrace();
+
+                pstmtCon.close();
+                pstmtSal.close();
+                pstmtAllowance.close();
+                pstmtDeduction.close();
+                pstmtTax.close();
+                pstmtBank.close();
+
+                executeAndCommitBatches(conn, null, null, null, null, null, null);
+
+                MultiThreadedDBInserter.activeThreadCount.decrementAndGet();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
             }
-            MultiThreadedDBInserter.activeThreadCount.decrementAndGet();
         };
     }
+    private static void executeAndCommitBatches(Connection conn, PreparedStatement... statements) throws SQLException {
+        int count = 0;
+        for (PreparedStatement pstmt : statements) {
+            if (pstmt != null) {
+                pstmt.executeBatch();
+                count ++;
+            }
+        }
+        MultiThreadedDBInserter.populatedRecords.getAndAdd(count/6);
+        conn.commit();
+    }
 
-    private static long insertEmployee(Connection conn, String sql) throws SQLException {
-        try (PreparedStatement pstmt = conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)) {
+    private static long insertEmployee(PreparedStatement pstmt) throws SQLException {
             pstmt.setString(1, faker.name().fullName());
             pstmt.setDate(2, new java.sql.Date(faker.date().birthday().getTime()));
             pstmt.setString(3, faker.options().option("M", "F"));
@@ -188,10 +245,10 @@ class Worker implements Runnable {
                     throw new SQLException("Failed to retrieve generated employee ID");
                 }
             }
-        }
     }
 
-    private static void insertContactInfo(Connection conn, PreparedStatement pstmt, long employeeId) throws SQLException {
+
+    private static void insertContactInfo(PreparedStatement pstmt, long employeeId) throws SQLException {
         pstmt.setLong(1, employeeId);
         pstmt.setString(2, faker.address().fullAddress());
         pstmt.setString(3, faker.phoneNumber().cellPhone());
@@ -202,7 +259,7 @@ class Worker implements Runnable {
         //pstmt.executeBatch();
     }
 
-    private static double insertAllowances(Connection conn, PreparedStatement pstmt, long employeeId, Date month, double basicSalary, double rate, String allowanceName) throws SQLException {
+    private static double insertAllowances(PreparedStatement pstmt, long employeeId, Date month, double basicSalary, double rate, String allowanceName) throws SQLException {
         pstmt.setLong(1, employeeId);
         pstmt.setDate(2, month);
         pstmt.setString(3, allowanceName);
@@ -215,7 +272,7 @@ class Worker implements Runnable {
         return basicSalary * rate;
     }
 
-    private static double insertDeductions(Connection conn, PreparedStatement pstmt, long employeeId, Date month) throws SQLException {
+    private static double insertDeductions(PreparedStatement pstmt, long employeeId, Date month) throws SQLException {
         pstmt.setLong(1, employeeId);
         pstmt.setDate(2, month);
         pstmt.setString(3, "Pension Contribution");
@@ -227,7 +284,7 @@ class Worker implements Runnable {
         return 5000.0;
     }
 
-    private static double insertTaxes(Connection conn, PreparedStatement pstmt, long employeeId, Date month, double grossSalary, String taxName) throws SQLException {
+    private static double insertTaxes(PreparedStatement pstmt, long employeeId, Date month, double grossSalary, String taxName) throws SQLException {
         pstmt.setLong(1, employeeId);
         pstmt.setDate(2, month);
         pstmt.setDouble(3, grossSalary); // Assuming a constant gross salary
@@ -241,7 +298,7 @@ class Worker implements Runnable {
         return taxAmount;
     }
 
-    private static void insertSalaryDetails(Connection conn, PreparedStatement pstmt, long employeeId, Date month, double basicSalary, double totalAllowances, double totalDeductions, double grossSalary, double totalTaxes) throws SQLException {
+    private static void insertSalaryDetails(PreparedStatement pstmt, long employeeId, Date month, double basicSalary, double totalAllowances, double totalDeductions, double grossSalary, double totalTaxes) throws SQLException {
         pstmt.setLong(1, employeeId);
         pstmt.setDate(2, month);
         pstmt.setDouble(3, basicSalary);
@@ -257,7 +314,7 @@ class Worker implements Runnable {
         //pstmt.executeBatch();
     }
 
-    private static void insertBankDetails(Connection conn, PreparedStatement pstmt, long employeeId) throws SQLException {
+    private static void insertBankDetails(PreparedStatement pstmt, long employeeId) throws SQLException {
         pstmt.setLong(1, employeeId);
         pstmt.setString(2, faker.finance().iban());
         pstmt.setString(3, faker.company().name());
