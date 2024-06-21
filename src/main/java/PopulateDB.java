@@ -5,44 +5,30 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Date;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 
+
 public class PopulateDB {
-    private static final int NUM_THREADS = 6;
-    private static final int MAX = 5000;
-    private static final int MIN = 1000;
+    private static final int NUM_THREADS = 100;
+    private static final int MAX = 7500;
+    private static final int MIN = 5000;
     private static final long TARGET_RECORDS = 10_000_000;
     private static final AtomicLong records = new AtomicLong();
     private static final AtomicLong populated_records = new AtomicLong();
-
-    private static final Connection[] connections = new Connection[NUM_THREADS * 2];
-
-    static {
-        for (int i = 0; i < connections.length; i++) {
-            connections[i] = ConnectDB.getConnection();
-        }
-    }
 
 
     public static void main(String[] args) throws InterruptedException {
 
             Random random = new Random();
             ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
-            int NUM_RECORDS_FOR_THREAD;
 
             try {
                 while(records.get() < TARGET_RECORDS) {
-                    NUM_RECORDS_FOR_THREAD = Math.min(random.nextInt(MAX - MIN + 1) + MIN, (int) (TARGET_RECORDS - records.get()));
-                    if(NUM_RECORDS_FOR_THREAD <(TARGET_RECORDS - records.get())){
-                        NUM_RECORDS_FOR_THREAD = (int) (TARGET_RECORDS - records.get());
-                    }
-                    executor.execute(new InsertTask(NUM_RECORDS_FOR_THREAD, populated_records));
-                    records.getAndAdd(NUM_RECORDS_FOR_THREAD);
-                    //TimeUnit.MILLISECONDS.sleep(100);
+                    executor.execute(new InsertTask(1, populated_records));
+                    records.getAndAdd(1);
+                    TimeUnit.MILLISECONDS.sleep(1);
                 }
             } finally{
             executor.shutdown();
@@ -57,13 +43,7 @@ public class PopulateDB {
                 }
         }
 
-        try {
-            for (Connection conn : connections) {
-                conn.close();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+
     }
 
 
@@ -82,25 +62,15 @@ public class PopulateDB {
 
         @Override
         public void run() {
-            Connection conn = null;for (int i= 0; i <3; i++) {
-                try {
-                    int l = ((int) (Math.random() * connections.length));
-                    conn = connections[l];
-
-                    if (conn == null || conn.isClosed()){
-                        conn   = ConnectDB.getConnection();
-                        break;
-                    }
-                    else if (!conn.isClosed()){
-                        break;
-                    }
-                } catch (SQLException e) {
-                    throw new RuntimeException(e);
-                }
+            Connection conn;
+            try {
+                conn = dataSource.getConnection();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
             }
             try {
                 if (conn != null && !conn.isClosed()){
-                    conn.setAutoCommit(false);
+                    conn.setAutoCommit(true);
 
                     String insertEmp = "INSERT INTO employees (name, dob, gender, department_id, employment_type, employment_date) VALUES (?, ?, ?, ?, ?, ?)";
                     String insertCon = "INSERT INTO contact_info (employee_id, address, phone_no, email, emergency_contact_no, emergency_contact_name) VALUES (?, ?, ?, ?, ?, ?)";
@@ -133,13 +103,13 @@ public class PopulateDB {
 
                         populated_records.incrementAndGet();
 
-                        if(populated_records.get() % 1000 == 0){
+                        if(populated_records.get() % 2500 == 0){
                             System.out.println("Populated " + populated_records.get() + " records");
-                            conn.commit();
+                            //conn.commit();
                         }
                     }
 
-                    conn.commit();
+                    //conn.commit();
                 }
             } catch (SQLException ex) {
                 ex.printStackTrace();
@@ -160,6 +130,7 @@ public class PopulateDB {
                 pstmt.setDate(6, new java.sql.Date(faker.date().past(10 * 365, TimeUnit.DAYS).getTime()));
 
                 pstmt.executeUpdate();
+                //conn.commit();
 
                 try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
@@ -181,6 +152,7 @@ public class PopulateDB {
                 pstmt.setString(6, faker.name().fullName());
 
                 pstmt.executeUpdate();
+                //conn.commit();
             }
         }
 
@@ -198,6 +170,7 @@ public class PopulateDB {
                 pstmt.setDouble(10, grossSalary - totalTaxes); // net_salary
 
                 pstmt.executeUpdate();
+                //conn.commit();
             }
         }
 
@@ -213,6 +186,7 @@ public class PopulateDB {
                 pstmt.setDouble(7, allowanceAmount);
 
                 pstmt.executeUpdate();
+                //conn.commit();
                 return allowanceAmount;
             }
         }
@@ -228,6 +202,7 @@ public class PopulateDB {
                 pstmt.setDouble(6, deductionAmount);
 
                 pstmt.executeUpdate();
+                //conn.commit();
                 return deductionAmount;
             }
         }
@@ -245,6 +220,7 @@ public class PopulateDB {
                 double taxAmount = grossSalary * 0.14;
                 pstmt.setDouble(7, taxAmount);
                 pstmt.executeUpdate();
+                //conn.commit();
                 return taxAmount;
             }
         }
@@ -257,6 +233,7 @@ public class PopulateDB {
                 pstmt.setString(4, faker.finance().bic());
 
                 pstmt.executeUpdate();
+                //conn.commit();
             }
         }
     }
