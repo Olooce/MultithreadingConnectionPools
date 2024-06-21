@@ -16,31 +16,32 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class v2 {
-    public static final long TARGET_RECORDS = 50000;
-    private static final int NUM_THREADS = 20;
-    private static final int MAX = 7500;
-    private static final int MIN = 5000;
+    static final AtomicLong TARGET_RECORDS = new AtomicLong(5_0_000);
+    static final AtomicInteger NUM_THREADS = new AtomicInteger(50);
+    private static final int MAX = 9000;
+    private static final int MIN = 3000;
     private static final AtomicLong records = new AtomicLong();
     static final AtomicLong populatedRecords = new AtomicLong();
     static final AtomicLong createdRecords = new AtomicLong();
     static final AtomicInteger activeThreadCount = new AtomicInteger();
     static final AtomicLong activeInserts = new AtomicLong();
-    private static final ThreadPoolExecutor dataPool = new ThreadPoolExecutor(NUM_THREADS / 2, NUM_THREADS / 2,
-            30L, TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<>());
-    private static final ThreadPoolExecutor executePool = new ThreadPoolExecutor(NUM_THREADS / 2, NUM_THREADS / 2,
+    static final AtomicInteger activeThreads = new AtomicInteger();
+    private static final ThreadPoolExecutor dataPool = new ThreadPoolExecutor(NUM_THREADS.get() , NUM_THREADS.get() ,
             60L, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<>());
-    private static final BlockingQueue<PreparedStatement[]> statementQueue = new LinkedBlockingQueue<>();
+    private static final ThreadPoolExecutor executePool = new ThreadPoolExecutor(NUM_THREADS.get() , NUM_THREADS.get() ,
+            60L, TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>());
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) {
         BlockingQueue<Integer> queue = new LinkedBlockingQueue<>();
+        BlockingQueue<PreparedStatement[]> statementQueue = new LinkedBlockingQueue<>();
         Random random = new Random();
         int numRecords;
 
         try {
-            while (records.get() < TARGET_RECORDS) {
-                numRecords = Math.min(random.nextInt(MAX - MIN + 1) + MIN, (int) (TARGET_RECORDS - records.get()));
+            while (records.get() < TARGET_RECORDS.get()) {
+                numRecords = Math.min(random.nextInt(MAX - MIN + 1) + MIN, (int) (TARGET_RECORDS.get() - records.get()));
                 queue.put(numRecords);
                 records.getAndAdd(numRecords);
             }
@@ -48,31 +49,87 @@ public class v2 {
             e.printStackTrace();
         }
 
-        for (int i = 0; i < NUM_THREADS; i++) {
-            dataPool.execute(new DataGenerator(statementQueue, queue));
-            TimeUnit.MILLISECONDS.sleep(1);
-            executePool.execute(new StatementExecutor(statementQueue));
-        }
 
-        AtomicInteger aprox = new AtomicInteger();
+
         new Thread(() -> {
-            while (populatedRecords.get() < TARGET_RECORDS) {
-                System.out.println("\nActive Generator threads: " + activeThreadCount.get());
-                System.out.println("Active Inserter threads:" +activeInserts.get());
-                System.out.println("Created " + createdRecords.get() + " records");
-                System.out.println("Populated " + populatedRecords.get() + " records");
-                System.out.println("Elapsed Time: " + aprox.get() / 3600 + "H: " + (aprox.get() % 3600) / 60 + "M (Approx.)");
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+            while (populatedRecords.get() < TARGET_RECORDS.get()) {
+
+                if (!statementQueue.isEmpty()  && (activeInserts.get() < (NUM_THREADS.get() - activeThreadCount.get()))){
+                    executePool.execute(new StatementExecutor(statementQueue));
                 }
-                aprox.getAndAdd(1);
+                try {
+                    Thread.sleep(500); // Sleep for 30 seconds
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    Thread.currentThread().interrupt(); // Restore the interrupted status
+                }
+                if((!queue.isEmpty() && createdRecords.get() < TARGET_RECORDS.get() ) && (activeThreadCount.get() <NUM_THREADS.get()/2 ) || ((activeInserts.get() < NUM_THREADS.get() - activeThreadCount.get()) && statementQueue.isEmpty())){
+                    dataPool.execute(new DataGenerator(statementQueue, queue));
+                }
+
+                try {
+                    Thread.sleep(4500); // Sleep for 30 seconds
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    Thread.currentThread().interrupt(); // Restore the interrupted status
+                }
+
+//                 if(activeThreads.get() < NUM_THREADS.get()) {
+//                     if (activeThreads.get() < NUM_THREADS.get() && (!queue.isEmpty() && (createdRecords.get() < TARGET_RECORDS.get()
+//                             && (activeThreads.get() < NUM_THREADS.get() && statementQueue.isEmpty())))) {
+//                         activeThreadCount.incrementAndGet();
+//                         activeThreads.incrementAndGet();
+//                         dataPool.execute(() -> {
+//                             try {
+//                                 dataPool.execute(new DataGenerator(statementQueue, queue));
+//                             } finally {
+//                                 activeThreadCount.decrementAndGet();
+//                                 activeThreads.decrementAndGet();
+//                             }
+//                         });
+//                     }
+//
+//                     if (!statementQueue.isEmpty()
+//                             && (activeThreads.get() < NUM_THREADS.get())) {
+//                         activeInserts.incrementAndGet();
+//                         activeThreads.incrementAndGet();
+//                         executePool.execute(() -> {
+//                             try {
+//                                 executePool.execute(new StatementExecutor(statementQueue));
+//                             } finally {
+//                                 activeInserts.decrementAndGet();
+//                                 activeThreads.decrementAndGet();
+//                             }
+//                         });
+//                     }
+//                 }
             }
         }).start();
 
-        executePool.shutdown();
-        dataPool.shutdown();
+
+
+        new Thread(() -> {
+            long startTime = System.currentTimeMillis();
+            while (populatedRecords.get() < TARGET_RECORDS.get()) {
+                long elapsedTime = System.currentTimeMillis() - startTime;
+
+                System.out.println("\nElapsed time: " + elapsedTime / 1000 + " seconds");
+                System.out.println("Active Generator threads: " + activeThreadCount.get());
+                System.out.println("Active Inserter threads: " + activeInserts.get());
+                System.out.println("Created " + createdRecords.get() + " records");
+                System.out.println("Populated " + populatedRecords.get() + " records");
+
+                try {
+                    Thread.sleep(5000); // Sleep for 30 seconds
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    Thread.currentThread().interrupt(); // Restore the interrupted status
+                }
+            }
+        }).start();
+
+        //executePool.shutdown();
+        //dataPool.shutdown();
 
         try {
             if (!executePool.awaitTermination(1, TimeUnit.DAYS)) {
@@ -97,13 +154,13 @@ public class v2 {
 }
 
 class DataGenerator implements Runnable {
-    private static BlockingQueue<PreparedStatement[]> statementsQueue;
+    private final BlockingQueue<PreparedStatement[]> statementsQueue;
     private final BlockingQueue<Integer> queue;
     private static final Random random = new Random();
     private static final Faker faker = new Faker();
 
     public DataGenerator(BlockingQueue<PreparedStatement[]> statementsQueue, BlockingQueue<Integer> queue) {
-        DataGenerator.statementsQueue = statementsQueue;
+        this.statementsQueue = statementsQueue;
         this.queue = queue;
     }
 
@@ -119,7 +176,7 @@ class DataGenerator implements Runnable {
             }*/
 
             try {
-                if (v2.createdRecords.get() >= v2.TARGET_RECORDS && queue.isEmpty()) {
+                if (v2.createdRecords.get() >= v2.TARGET_RECORDS.get() && queue.isEmpty()) {
                     break;
                 }
 
@@ -134,7 +191,7 @@ class DataGenerator implements Runnable {
         }
     }
 
-    public static Runnable task(int numRecordsForThread) {
+    public Runnable task(int numRecordsForThread) {
         v2.activeThreadCount.incrementAndGet();
         return () -> {
             try (Connection conn = Data_Source.getConnection()) {
@@ -150,57 +207,76 @@ class DataGenerator implements Runnable {
                 List<PreparedStatement> batchQueue = new ArrayList<>();
 
                 int batch = 0;
-                for (int i = 0; i < numRecordsForThread; i++) {
-                    PreparedStatement pstmtEmp = conn.prepareStatement(insertEmp, PreparedStatement.RETURN_GENERATED_KEYS);
-                    PreparedStatement pstmtCon = conn.prepareStatement(insertCon);
-                    PreparedStatement pstmtSal = conn.prepareStatement(insertSal);
-                    PreparedStatement pstmtAllowance = conn.prepareStatement(insertAllowance);
-                    PreparedStatement pstmtDeduction = conn.prepareStatement(insertDeduction);
-                    PreparedStatement pstmtTax = conn.prepareStatement(insertTax);
-                    PreparedStatement pstmtBank = conn.prepareStatement(insertBank);
+             try {
+                 PreparedStatement pstmtAllowance = null;
+                 PreparedStatement pstmtCon = null;
+                 PreparedStatement pstmtSal = null;
+                 PreparedStatement pstmtBank = null;
+                 for (int i = 0; i < numRecordsForThread; i++) {
+                     PreparedStatement pstmtEmp = conn.prepareStatement(insertEmp, PreparedStatement.RETURN_GENERATED_KEYS);
+                     pstmtCon = conn.prepareStatement(insertCon);
+                     pstmtSal = conn.prepareStatement(insertSal);
+                     pstmtAllowance = conn.prepareStatement(insertAllowance);
+                     PreparedStatement pstmtDeduction = conn.prepareStatement(insertDeduction);
+                     PreparedStatement pstmtTax = conn.prepareStatement(insertTax);
+                     pstmtBank = conn.prepareStatement(insertBank);
 
-                    long employeeId = insertEmployee(pstmtEmp);
-                    double basicSalary = random.nextDouble() * (2000000 - 50000) + 50000;
+                     long employeeId = insertEmployee(pstmtEmp);
+                     double basicSalary = random.nextDouble() * (2000000 - 50000) + 50000;
 
 
-                    for (int j = 0; j < 3; j++) {
-                        Date month = convertUtilToSqlDate(new java.util.Date(faker.date().past(365, TimeUnit.DAYS).getTime()));
-                        double totalAllowances = 0.0;
-                        totalAllowances += insertAllowances(pstmtAllowance, employeeId, month, basicSalary, 0.03, "House Allowance");
-                        totalAllowances += insertAllowances(pstmtAllowance, employeeId, month, basicSalary, 0.015, "Transport Allowance");
-                        totalAllowances += insertAllowances(pstmtAllowance, employeeId, month, basicSalary, 0.02, "Mortgage Allowance");
-                        double totalDeductions = insertDeductions(pstmtDeduction, employeeId, month);
-                        double grossSalary = basicSalary + totalAllowances - totalDeductions;
-                        double totalTaxes = insertTaxes(pstmtTax, employeeId, month, grossSalary, "PAYE");
+                     for (int j = 0; j < 3; j++) {
+                         Date month = convertUtilToSqlDate(new java.util.Date(faker.date().past(365, TimeUnit.DAYS).getTime()));
+                         double totalAllowances = 0.0;
+                         totalAllowances += insertAllowances(pstmtAllowance, employeeId, month, basicSalary, 0.03, "House Allowance");
+                         totalAllowances += insertAllowances(pstmtAllowance, employeeId, month, basicSalary, 0.015, "Transport Allowance");
+                         totalAllowances += insertAllowances(pstmtAllowance, employeeId, month, basicSalary, 0.02, "Mortgage Allowance");
+                         double totalDeductions = insertDeductions(pstmtDeduction, employeeId, month);
+                         double grossSalary = basicSalary + totalAllowances - totalDeductions;
+                         double totalTaxes = insertTaxes(pstmtTax, employeeId, month, grossSalary, "PAYE");
 
-                        insertSalaryDetails(pstmtSal, employeeId, month, basicSalary, totalAllowances, totalDeductions, grossSalary, totalTaxes);
-                        basicSalary *= 1.02;
-                    }
+                         insertSalaryDetails(pstmtSal, employeeId, month, basicSalary, totalAllowances, totalDeductions, grossSalary, totalTaxes);
+                         basicSalary *= 1.02;
+                     }
 
-                    insertContactInfo(pstmtCon, employeeId);
-                    insertBankDetails(pstmtBank, employeeId);
+                     insertContactInfo(pstmtCon, employeeId);
+                     insertBankDetails(pstmtBank, employeeId);
 
-                    batchQueue.add(pstmtCon);
-                    batchQueue.add(pstmtSal);
-                    batchQueue.add(pstmtAllowance);
-                    batchQueue.add(pstmtDeduction);
-                    batchQueue.add(pstmtTax);
-                    batchQueue.add(pstmtBank);
+                     batchQueue.add(pstmtCon);
+                     batchQueue.add(pstmtSal);
+                     batchQueue.add(pstmtAllowance);
+                     batchQueue.add(pstmtDeduction);
+                     batchQueue.add(pstmtTax);
+                     batchQueue.add(pstmtBank);
 
-                    batch++;
-                    if (batch %  500 == 0) {
-                        statementsQueue.put(batchQueue.toArray(new PreparedStatement[0]));
-                        batchQueue.clear();
+                     batch++;
+                     if (batch % 6 == 0) {
+                         conn.commit();
+                         statementsQueue.put(batchQueue.toArray(new PreparedStatement[0]));
+                     }
+                     batchQueue.clear();
 
-                    }
 
-                    v2.createdRecords.incrementAndGet();
-                }
+                     v2.createdRecords.incrementAndGet();
+                 }
+                 conn.commit();
 
-                if (!batchQueue.isEmpty()) {
-                    statementsQueue.put(batchQueue.toArray(new PreparedStatement[0]));
-                }
-            } catch (SQLException | InterruptedException e) {
+
+
+                 if (!batchQueue.isEmpty()) {
+                     statementsQueue.put(batchQueue.toArray(new PreparedStatement[0]));
+                 }
+                 conn.commit();
+                 assert pstmtCon != null;
+                 pstmtAllowance.close();
+                 pstmtCon.close();
+                 pstmtSal.close();
+                 pstmtBank.close();
+
+             } catch (SQLException | InterruptedException e) {
+                 throw new RuntimeException(e);
+             }
+            } catch (SQLException e) {
                 throw new RuntimeException(e);
             } finally {
                 v2.activeThreadCount.decrementAndGet();
@@ -301,6 +377,51 @@ class DataGenerator implements Runnable {
     }
 }
 
+//class StatementExecutor implements Runnable {
+//    private final BlockingQueue<PreparedStatement[]> queue;
+//
+//    public StatementExecutor(BlockingQueue<PreparedStatement[]> queue) {
+//        this.queue = queue;
+//    }
+//
+//    @Override
+//    public void run() {
+//        while (true) {
+//            v2.activeInserts.incrementAndGet();
+//            try {
+//                PreparedStatement[] statements = queue.poll(5, TimeUnit.MICROSECONDS);
+//                if(statements !=null) {
+//                    executeAndCommitBatches(statements);
+//                }
+//            } catch (InterruptedException | SQLException e) {
+//                throw new RuntimeException(e);
+//            }
+//            v2.activeInserts.decrementAndGet();
+//        }
+//    }
+//
+//    private static void executeAndCommitBatches(PreparedStatement[] statements) throws SQLException {
+//        if(statements != null) {
+//            try (Connection conn = Data_Source.getConnection()) {
+//                conn.setAutoCommit(false);
+//                int count = 0;
+//                for (PreparedStatement pstmt : statements) {
+//                    if (pstmt != null) {
+//                        pstmt.executeBatch();
+//                        count++;
+//                    }
+//                }
+//                v2.populatedRecords.getAndAdd(count / 6);
+//                conn.commit();
+//            }
+//        }
+//        else{
+//            System.out.println("Called null batch.");
+//        }
+//    }
+//}
+
+
 class StatementExecutor implements Runnable {
     private final BlockingQueue<PreparedStatement[]> queue;
 
@@ -313,9 +434,21 @@ class StatementExecutor implements Runnable {
         while (true) {
             v2.activeInserts.incrementAndGet();
             try {
-                PreparedStatement[] statements = queue.poll(5, TimeUnit.MICROSECONDS);
-                if(statements !=null) {
-                    executeAndCommitBatches(statements);
+                PreparedStatement[] statements = new PreparedStatement[3000];
+                int count = 0;
+                for (int i = 0; i < 3000; i++) {
+                    PreparedStatement[] partialStatements = queue.poll(5, TimeUnit.MICROSECONDS);
+                    if (partialStatements == null) {
+                        break;
+                    }
+                    if (count + partialStatements.length > statements.length) {
+                        break;
+                    }
+                    System.arraycopy(partialStatements, 0, statements, count, partialStatements.length);
+                    count += partialStatements.length;
+                }
+                if (count > 0) {
+                    executeAndCommitBatches(statements, count);
                 }
             } catch (InterruptedException | SQLException e) {
                 throw new RuntimeException(e);
@@ -324,23 +457,28 @@ class StatementExecutor implements Runnable {
         }
     }
 
-    private static void executeAndCommitBatches(PreparedStatement[] statements) throws SQLException {
-        if(statements != null) {
-            try (Connection conn = Data_Source.getConnection()) {
-                conn.setAutoCommit(false);
-                int count = 0;
-                for (PreparedStatement pstmt : statements) {
-                    if (pstmt != null) {
-                        pstmt.executeBatch();
-                        count++;
-                    }
+    private static void executeAndCommitBatches(PreparedStatement[] statements, int count) throws SQLException {
+        try (Connection conn = Data_Source.getConnection()) {
+            conn.setAutoCommit(false);
+            int batchCount = 0;
+            for (int i = 0; i < count; i++) {
+                PreparedStatement pstmt = statements[i];
+                if (pstmt!= null) {
+                    pstmt.executeBatch();
+                    batchCount++;
                 }
-                v2.populatedRecords.getAndAdd(count / 6);
-                conn.commit();
             }
-        }
-        else{
-            System.out.println("Called null batch.");
+            v2.populatedRecords.getAndAdd(batchCount / 6);
+            conn.commit();
+        } catch (SQLException e) {
+            /*try {
+                // Roll back the transaction if an exception occurs
+                Data_Source.getConnection().rollback();
+            } catch (SQLException ex) {
+                // Log the rollback exception
+                ex.printStackTrace();
+            }*/
+            throw e;
         }
     }
 }

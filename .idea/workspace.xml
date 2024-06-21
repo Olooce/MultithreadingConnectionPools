@@ -5,10 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8fb7a589-0f2c-4e28-9bfd-3f3bc0ca8a79" name="Changes" comment=".">
-      <change afterPath="$PROJECT_DIR$/src/main/java/v2.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources.local.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.local.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/MultiThreadedDBInserter.java" beforeDir="false" afterPath="$PROJECT_DIR$/lib/MultiThreadedDBInserter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/db.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/db.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/MultiThreadedDBInserter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/MultiThreadedDBInserter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/v2.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/v2.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -87,8 +87,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9f38398b9061-39b83d9b5494-intellij.indexing.shared.core-IU-241.17890.1" />
-        <option value="bundled-js-predefined-1d06a55b98c1-0b3e54e931b4-JavaScript-IU-241.17890.1" />
+        <option value="bundled-jdk-9f38398b9061-39b83d9b5494-intellij.indexing.shared.core-IU-241.18034.55" />
+        <option value="bundled-js-predefined-1d06a55b98c1-0b3e54e931b4-JavaScript-IU-241.18034.55" />
       </set>
     </attachedChunks>
   </component>
@@ -104,7 +104,13 @@
       <workItem from="1718787097976" duration="9539000" />
       <workItem from="1718797333171" duration="1604000" />
       <workItem from="1718798971250" duration="48764000" />
-      <workItem from="1718871854967" duration="730000" />
+      <workItem from="1718871854967" duration="18361000" />
+      <workItem from="1718900655949" duration="337000" />
+      <workItem from="1718905013723" duration="484000" />
+      <workItem from="1718905545246" duration="19000" />
+      <workItem from="1718939950591" duration="362000" />
+      <workItem from="1718973992518" duration="3831000" />
+      <workItem from="1718984349680" duration="6467000" />
     </task>
     <task id="LOCAL-00001" summary="First Commit.">
       <option name="closed" value="true" />
@@ -154,7 +160,15 @@
       <option name="project" value="LOCAL" />
       <updated>1718842326773</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Started a version with 2 thread pools. One creates the fake data and prepares the statements and the other executes and commits them.">
+      <option name="closed" value="true" />
+      <created>1718872821117</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1718872821117</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -164,7 +178,8 @@
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="First Commit." />
     <MESSAGE value="." />
-    <option name="LAST_COMMIT_MESSAGE" value="." />
+    <MESSAGE value="Started a version with 2 thread pools. One creates the fake data and prepares the statements and the other executes and commits them." />
+    <option name="LAST_COMMIT_MESSAGE" value="Started a version with 2 thread pools. One creates the fake data and prepares the statements and the other executes and commits them." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
