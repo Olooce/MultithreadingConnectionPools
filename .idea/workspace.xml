@@ -5,10 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8fb7a589-0f2c-4e28-9bfd-3f3bc0ca8a79" name="Changes" comment=".">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/dataSources.local.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.local.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/MultiThreadedDBInserter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/MultiThreadedDBInserter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/v2.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/v2.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/MultiThreadedDBInserter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/MultiThreadedDBInserter.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -54,6 +54,7 @@
     &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
     &quot;Application.MultiThreadedDBInserter.executor&quot;: &quot;Run&quot;,
     &quot;Application.v2.executor&quot;: &quot;Run&quot;,
+    &quot;Attach to process.pid 255580.executor&quot;: &quot;ProcessAttachDebug&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;java.suggest.annotation.dependency&quot;: &quot;false&quot;,
@@ -87,8 +88,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9f38398b9061-39b83d9b5494-intellij.indexing.shared.core-IU-241.18034.55" />
-        <option value="bundled-js-predefined-1d06a55b98c1-0b3e54e931b4-JavaScript-IU-241.18034.55" />
+        <option value="bundled-jdk-9f38398b9061-39b83d9b5494-intellij.indexing.shared.core-IU-241.18034.62" />
+        <option value="bundled-js-predefined-1d06a55b98c1-0b3e54e931b4-JavaScript-IU-241.18034.62" />
       </set>
     </attachedChunks>
   </component>
@@ -110,7 +111,9 @@
       <workItem from="1718905545246" duration="19000" />
       <workItem from="1718939950591" duration="362000" />
       <workItem from="1718973992518" duration="3831000" />
-      <workItem from="1718984349680" duration="6467000" />
+      <workItem from="1718984349680" duration="30738000" />
+      <workItem from="1719085348900" duration="3584000" />
+      <workItem from="1719208046784" duration="3292000" />
     </task>
     <task id="LOCAL-00001" summary="First Commit.">
       <option name="closed" value="true" />
@@ -168,7 +171,15 @@
       <option name="project" value="LOCAL" />
       <updated>1718872821117</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary=".">
+      <option name="closed" value="true" />
+      <created>1718994408866</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1718994408867</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -177,9 +188,9 @@
   <component name="VcsManagerConfiguration">
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="First Commit." />
-    <MESSAGE value="." />
     <MESSAGE value="Started a version with 2 thread pools. One creates the fake data and prepares the statements and the other executes and commits them." />
-    <option name="LAST_COMMIT_MESSAGE" value="Started a version with 2 thread pools. One creates the fake data and prepares the statements and the other executes and commits them." />
+    <MESSAGE value="." />
+    <option name="LAST_COMMIT_MESSAGE" value="." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
