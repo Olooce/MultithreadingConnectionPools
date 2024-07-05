@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8fb7a589-0f2c-4e28-9bfd-3f3bc0ca8a79" name="Changes" comment="." />
+    <list default="true" id="8fb7a589-0f2c-4e28-9bfd-3f3bc0ca8a79" name="Changes" comment=".">
+      <change beforePath="$PROJECT_DIR$/src/main/java/MultiThreadedDBInserter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/MultiThreadedDBInserter.java" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -111,6 +113,7 @@
       <workItem from="1719208046784" duration="3292000" />
       <workItem from="1719253977090" duration="33000" />
       <workItem from="1719813550537" duration="364000" />
+      <workItem from="1720182506192" duration="789000" />
     </task>
     <task id="LOCAL-00001" summary="First Commit.">
       <option name="closed" value="true" />

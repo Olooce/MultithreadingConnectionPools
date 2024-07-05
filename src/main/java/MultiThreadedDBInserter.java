@@ -6,17 +6,17 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class MultiThreadedDBInserter {
-    private static final int NUM_THREADS = 35; // Number of threads
-    static final int BATCH_SIZE = 100; // Batch size
-    static final long TARGET_RECORDS = 10_000_000; // Target number of records
-    static final AtomicLong populatedRecords = new AtomicLong(); // Populated records counter
-    static final AtomicLong activeThreads = new AtomicLong(); // Active threads counter
-    static ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS); // Thread pool executorp
+    private static final int NUM_THREADS = 35;
+    static final int BATCH_SIZE = 100;
+    static final long TARGET_RECORDS = 10_000_000;
+    static final AtomicLong populatedRecords = new AtomicLong();
+    static final AtomicLong activeThreads = new AtomicLong();
+    static ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
 
     public static void main(String[] args) throws InterruptedException {
-        long startTime = System.currentTimeMillis(); // Start time for the process
+        long startTime = System.currentTimeMillis();
 
-        // Status update thread
+        
         new Thread(() -> {
             try {
                 long lastTime = startTime;
