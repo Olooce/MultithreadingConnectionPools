@@ -46,6 +46,7 @@ public class v2 {
                 records.getAndAdd(numRecords);
             }
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             e.printStackTrace();
         }
 
@@ -58,7 +59,7 @@ public class v2 {
                     executePool.execute(new StatementExecutor(statementQueue));
                 }
                 try {
-                    Thread.sleep(500); // Sleep for 30 seconds
+                    Thread.sleep(500);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                     Thread.currentThread().interrupt(); // Restore the interrupted status
@@ -68,7 +69,7 @@ public class v2 {
                 }
 
                 try {
-                    Thread.sleep(4500); // Sleep for 30 seconds
+                    Thread.sleep(4500);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                     Thread.currentThread().interrupt(); // Restore the interrupted status
