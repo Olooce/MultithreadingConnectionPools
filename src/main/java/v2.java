@@ -275,6 +275,7 @@ class DataGenerator implements Runnable {
                  pstmtBank.close();
 
              } catch (SQLException | InterruptedException e) {
+                 Thread.currentThread().interrupt();
                  throw new RuntimeException(e);
              }
             } catch (SQLException e) {
