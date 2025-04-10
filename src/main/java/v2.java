@@ -452,7 +452,11 @@ class StatementExecutor implements Runnable {
                 if (count > 0) {
                     executeAndCommitBatches(statements, count);
                 }
+                if (queue.isEmpty() && v2.createdRecords.get() >= v2.TARGET_RECORDS.get()) {
+                    break;
+                }
             } catch (InterruptedException | SQLException e) {
+                Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
             v2.activeInserts.decrementAndGet();
